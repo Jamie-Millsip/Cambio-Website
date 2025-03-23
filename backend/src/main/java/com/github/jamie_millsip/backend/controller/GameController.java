@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Objects;
 
 @RestController
-@CrossOrigin(origins = "https://jamie-millsip.github.io")
-//@CrossOrigin(origins = "http://localhost:5173")
+//@CrossOrigin(origins = "https://jamie-millsip.github.io")
+@CrossOrigin(origins = "http://localhost:5173")
 public class GameController {
 
 
@@ -36,13 +36,13 @@ public class GameController {
 
 
     public void triggerBroadcast(String lobbyID, GameSocketResponse response){
-        System.out.println("Broadcast Triggered");
         messagingTemplate.convertAndSend("/topic/game/" + lobbyID, response);
     }
 
     @RequestMapping("/drawCard/{lobbyID}")
     public void drawCard(@PathVariable String lobbyID, @RequestBody int pile){
-        triggerBroadcast(lobbyID, new GameSocketResponse("changeState", null, 1, "draw"));
+        PositionData pileData = new PositionData(pile, -1, -1);
+        triggerBroadcast(lobbyID, new GameSocketResponse("changeState", null, 1, "draw", pileData));
     }
 
     @RequestMapping("/discardCard/{lobbyID}")
@@ -64,6 +64,7 @@ public class GameController {
                 // if the discarded card is from a pile
                 if (cardsIndex < 2){
                     CardResponse temp = cards.get(pile).getFirst();
+                    temp.setPlayer(1);
                     cards.get(pile).removeFirst();
                     temp.getCard().setVisible(true);
                     cards.get(1).addFirst(temp);
@@ -88,7 +89,7 @@ public class GameController {
                     CardResponse temp = cards.get(pile).getFirst();
                     temp.setRow(row);
                     temp.setCol(col);
-                    temp.setPlayer(cardsIndex-2);
+                    temp.setPlayer(cardsIndex);
                     temp.getCard().setVisible(false);
                     cards.get(pile).removeFirst();
 
@@ -96,14 +97,13 @@ public class GameController {
                     cards.get(1).addFirst(cards.get(cardsIndex).get(index));
                     cards.get(1).getFirst().setRow(-1);
                     cards.get(1).getFirst().setCol(-1);
-                    cards.get(1).getFirst().setPlayer(-1);
+                    cards.get(1).getFirst().setPlayer(1);
                     cards.get(1).getFirst().getCard().setVisible(true);
                     // replaces the card in hand with the new card
                     cards.get(cardsIndex).set(index, temp);
                 }
 
                 if (cards.getFirst().isEmpty()){
-                    System.out.println("draw pile is empty");
                     ArrayList<CardResponse> tempArray = new ArrayList<>(cards.get(1));
                     cards.removeFirst();
                     cards.addFirst(tempArray);
@@ -116,25 +116,25 @@ public class GameController {
                     }
                     Collections.shuffle(cards.getFirst());
                 }
-
-                triggerBroadcast(lobbyID, new GameSocketResponse("changeState", cards, ability, "discard"));
+                PositionData card1Pos = new PositionData(pile, -1, -1);
+                PositionData card2Pos = new PositionData(cardsIndex, row, col);
+                triggerBroadcast(lobbyID, new GameSocketResponse("changeState", cards, ability, "discard", card1Pos, card2Pos));
             }
         }
     }
 
     @RequestMapping("/look/{lobbyID}")
-    public void cardLook(@PathVariable String lobbyID){
+    public void cardLook(@PathVariable String lobbyID, @RequestBody PositionData cardLookedAt){
         for (Lobby lobby : lobbyList) {
             if (lobby.getId().equals(lobbyID)) {
                 ArrayList<ArrayList<CardResponse>> cards = lobby.getCards();
-                triggerBroadcast(lobbyID, new GameSocketResponse("changeState", cards, 0, "look"));
+                triggerBroadcast(lobbyID, new GameSocketResponse("changeState", cards, 0, "look", cardLookedAt));
             }
         }
     }
 
     @RequestMapping("/swapCards/{lobbyID}")
     public void swapCards(@PathVariable String lobbyID, @RequestBody SwapRequest swapRequest) {
-        System.out.println("WEKOIEFJSOFHNEIFBAK");
         // if the user decided to swap the cards
         ArrayList<CardResponse> swapCards = new ArrayList<>();
         boolean swap = swapRequest.getSwap();
@@ -143,16 +143,15 @@ public class GameController {
                 if (lobby.getId().equals(lobbyID)) {
                     ArrayList<ArrayList<CardResponse>> cards = lobby.getCards();
                     for (int x = 0; x < cards.size(); x++) {
-                        if (x == swapRequest.getCard1().getPlayer() + 2) {
+                        if (x == swapRequest.getCard1().getPlayer()) {
                             swapCards.add(findSwapCard(swapRequest.getCard1(), cards));
                         }
-                        if (x == swapRequest.getCard2().getPlayer() + 2) {
+                        if (x == swapRequest.getCard2().getPlayer()) {
                             swapCards.add(findSwapCard(swapRequest.getCard2(), cards));
                         }
                     }
-
                     for (int x = 0; x < cards.size(); x++) {
-                            if (x == swapRequest.getCard1().getPlayer() + 2 || x == swapRequest.getCard2().getPlayer() + 2) {
+                            if (x == swapRequest.getCard1().getPlayer() || x == swapRequest.getCard2().getPlayer()) {
                             for (int y = 0; y < cards.get(x).size(); y++) {
                                 if (cards.get(x).get(y) != null){
                                     if (cards.get(x).get(y).getCol() == swapCards.get(0).getCol() && cards.get(x).get(y).getRow() == swapCards.get(0).getRow() && swapCards.get(0).getPlayer() == cards.get(x).get(y).getPlayer()){
@@ -165,18 +164,18 @@ public class GameController {
                             }
                         }
                     }
-                    triggerBroadcast(lobbyID, new GameSocketResponse("changeState", cards, 0, "swap"));
+                    triggerBroadcast(lobbyID, new GameSocketResponse("changeState", cards, 0, "swap", swapRequest.getCard1(), swapRequest.getCard2()));
                 }
             }
         }
         else{
-            triggerBroadcast(lobbyID, new GameSocketResponse("changeState", null, 0));
+            triggerBroadcast(lobbyID, new GameSocketResponse("changeState", null, 0, "noSwap"));
         }
     }
 
 
     public CardResponse findSwapCard (PositionData posData, ArrayList<ArrayList<CardResponse>> cards){
-        for (CardResponse card : cards.get(posData.getPlayer() + 2)){
+        for (CardResponse card : cards.get(posData.getPlayer())){
 
             if (card!= null && (card.getRow() == posData.getRow() && card.getCol() == posData.getColumn())){
              return new CardResponse(card.getCard(), card.getPlayer(), card.getRow(), card.getCol());
@@ -187,33 +186,21 @@ public class GameController {
 
     @RequestMapping("/flipCard/{lobbyID}")
     public void flipCard(@PathVariable String lobbyID, @RequestBody FlipRequest flipRequest){
-        System.out.println("Flip Card");
         PositionData positionData = flipRequest.getPositionData();
-        System.out.println("player inputted: " +  positionData.getPlayer());
-        System.out.println("row: " + positionData.getRow());
-        System.out.println("col inputted: " + positionData.getColumn());
         for (Lobby lobby : lobbyList) {
             if (lobby.getId().equals(lobbyID)) {
-                System.out.println("test1");
                 ArrayList<ArrayList<CardResponse>> cards = lobby.getCards();
                 for (int x = 0; x < cards.size(); x++) {
-                    if (x == positionData.getPlayer() + 2) {
-                        System.out.println("test2");
+                    if (x == positionData.getPlayer()) {
                         for (int y = 0; y < cards.get(x).size(); y++) {
                             if (cards.get(x).get(y) != null){
-                                System.out.println("test3");
                                 if (cards.get(x).get(y).getCol() == positionData.getColumn() && cards.get(x).get(y).getRow() == positionData.getRow()) {
-                                    System.out.println("test4");
                                     if (Objects.equals(cards.get(1).getFirst().getCard().getFace(), cards.get(x).get(y).getCard().getFace())){
-                                        System.out.println("test5");
                                         CardResponse temp = new CardResponse(cards.get(x).get(y).getCard(), -1, -1, -1);
                                         temp.getCard().setVisible(true);
                                         cards.get(x).set(y, null);
                                         cards.get(1).addFirst(temp);
                                         break;
-                                    }
-                                    else{
-                                        System.out.println("test6");
                                     }
                                 }
                             }
@@ -221,7 +208,7 @@ public class GameController {
                         break;
                     }
                 }
-                triggerBroadcast(lobbyID, new GameSocketResponse("returnToState", cards , flipRequest.getState(), "flip"));
+                triggerBroadcast(lobbyID, new GameSocketResponse("returnToState", cards , flipRequest.getState(), "flipCard"));
                 break;
             }
         }
@@ -230,12 +217,12 @@ public class GameController {
 
     @RequestMapping("/cambio/{lobbyID}")
     public void callCambio (@PathVariable String lobbyID){
-        triggerBroadcast(lobbyID, new GameSocketResponse("changePlayer", null, 0));
+        triggerBroadcast(lobbyID, new GameSocketResponse("changePlayer", null, 0, "callCambio"));
     }
 
     @RequestMapping("/endGame/{lobbyID}")
     public void endGame(@PathVariable String lobbyID){
-        triggerBroadcast(lobbyID, new GameSocketResponse("endGame", null, 0));
+        triggerBroadcast(lobbyID, new GameSocketResponse("endGame", null, 0, "endGame"));
     }
 
     @RequestMapping("/getGameResults/{lobbyID}")
