@@ -144,7 +144,6 @@ const animateLookCard = async (refs, card, trigger, triggerVar, isLooking) =>{
 const animateSwapCard = async (refs, card1, card2, card1Angle, card2Angle, radius) => {
     const card1El = refs.get(`${card1.player}-${card1.row}-${card1.col}`);
     const card2El = refs.get(`${card2.player}-${card2.row}-${card2.col}`);
-    console.log("CARD1EL card2EL: ", card1El, card2El)
     if (card1El && card2El){
         const card1X = card1El.getBoundingClientRect().x + card1El.getBoundingClientRect().width
         const card1Y = card1El.getBoundingClientRect().y + card1El.getBoundingClientRect().height
@@ -153,19 +152,17 @@ const animateSwapCard = async (refs, card1, card2, card1Angle, card2Angle, radiu
         const dX = card1X - card2X
         const dY = card1Y - card2Y
         const cardRadius = radius / 375
-        let card1RadiusNeg = ``;
-        let card2RadiusNeg = ``;
         card1El.style.transition = "transform 1s ease-in-out"
         card2El.style.transition = "transform 1s ease-in-out"
         
             card1El.style.transform = `
             ${card1Angle % 360 === 0 ? `` : `rotate(${card1Angle}deg)`} 
-            translate(${card1RadiusNeg}${-dX*cardRadius}px, ${card1RadiusNeg}${-dY*cardRadius}px) 
+            translate(${-dX*cardRadius}px, ${-dY*cardRadius}px) 
             ${card2Angle % 360 === 0 ? `` : `rotate(${card2Angle}deg)`}`
             
             card2El.style.transform = `
             ${card2Angle % 360 === 0 ? `` : `rotate(${card2Angle}deg)`} 
-            translate(${card2RadiusNeg}${dX*cardRadius}px, ${card2RadiusNeg}${dY*cardRadius}px) 
+            translate(${dX*cardRadius}px, ${dY*cardRadius}px) 
             ${card1Angle % 360 === 0 ? `` : `rotate(${card1Angle}deg)`}`
             await Promise.all([
                 new Promise(resolve => {
@@ -192,7 +189,6 @@ const animateSwapCard = async (refs, card1, card2, card1Angle, card2Angle, radiu
 const animateFlipCardSuccess = async (refs, card, angle, radius, trigger, triggerVar) => {
     const cardEl = refs.get(`${card.player}-${card.row}-${card.col}`);
     const discardPileEl = refs.get(`1--1--1`);
-    console.log("ANIMATEFLIPCARDSUCCESSCARDEL: ", cardEl)
     if (cardEl){
         card.card.visible = true;
         trigger(triggerVar+1)
@@ -213,26 +209,23 @@ const animateFlipCardSuccess = async (refs, card, angle, radius, trigger, trigge
 }
 
 const animateFlipCardFail = async (refs, givenCard, flippedCard,  angle, radius, trigger, triggerVar) => {
-    console.log("REFS: ", refs)
-    console.log("PLAYER ROW COL: ", givenCard.player, givenCard.row, givenCard.col)
     const givenCardEl = refs.get(`${givenCard.player}-${givenCard.row}-${givenCard.col}`);
     const flippedCardEl = refs.get(`${flippedCard.player}-${flippedCard.row}-${flippedCard.col}`)
     const drawPileEl = refs.get(`0--1--1`)
     const scaleConverter = 1/1.4;
-    console.log("CARDELDRWAPILEEL", givenCardEl, drawPileEl)
     if (givenCardEl && drawPileEl && flippedCardEl){
-        
-        console.log("FLIPCARDEL",flippedCardEl)
         flippedCard.card.visible = true;
         trigger(triggerVar+1)
         flippedCardEl.style.transition = "transform 1s ease-in-out";
         flippedCardEl.style.transform = "scale(1.2)"
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        flippedCard.card.visible = false;
+        trigger(triggerVar+1)
+        flippedCardEl.style.transform = "scale(1)";
         await new Promise(resolve => {
             flippedCardEl.addEventListener('transitionend', resolve, { once: true });
         });
-        flippedCardEl.style.transform = "";
-        flippedCard.card.visible = false;
-        trigger(triggerVar+1)
         flippedCardEl.style.transition = "transform";
 
 
@@ -244,26 +237,19 @@ const animateFlipCardFail = async (refs, givenCard, flippedCard,  angle, radius,
         const dY = givenCardElY - drawPileElY
         const cardRadius = radius / 375
 
-        console.log("Before transform:", drawPileEl.style.transition);
         drawPileEl.style.transition = "transform 1s ease-in-out";
-        console.log("After transform:", drawPileEl.style.transition);
-        console.log("before real transform:", drawPileEl.style.transform);
         drawPileEl.style.transform = 
                 `scale(${scaleConverter}) 
                 translate(${dX*cardRadius}px, ${dY*cardRadius}px) 
                 ${angle % 360 === 0 ? "" : `rotate(${angle}deg)`}`;
-        console.log("after real transform:", drawPileEl.style.transform);
-        console.log("AAAAAA")
         await new Promise(resolve => {
             drawPileEl.addEventListener('transitionend', resolve, { once: true });
         });        
-        console.log("BBBBBB")
 
         drawPileEl.style.transition = "transform";
         drawPileEl.style.transform = "";
 
     }
-    // animate card from draw pile moving to pos of "card var"
 }
 
 
@@ -271,8 +257,33 @@ const animateFlipCardFail = async (refs, givenCard, flippedCard,  angle, radius,
 
 
 
-const animateGiveCard = async () => {
+const animateGiveCard = async (refs, givenCard, destinationCard, givenCardAngle, destinationCardAngle, radius) => {
+    const givenCardEl = refs.get(`${givenCard.player}-${givenCard.row}-${givenCard.col}`);
+    const destinationCardEl = refs.get(`${destinationCard.player}-${destinationCard.row}-${destinationCard.col}`)
+    if (givenCardEl && destinationCardEl){
 
+        const givenCardX = givenCardEl.getBoundingClientRect().x + givenCardEl.getBoundingClientRect().width
+        const givenCardY = givenCardEl.getBoundingClientRect().y + givenCardEl.getBoundingClientRect().height
+        const destinationCardX = destinationCardEl.getBoundingClientRect().x + destinationCardEl.getBoundingClientRect().width
+        const destinationCardY = destinationCardEl.getBoundingClientRect().y + destinationCardEl.getBoundingClientRect().height
+        const dX = givenCardX - destinationCardX
+        const dY = givenCardY - destinationCardY
+        const cardRadius = radius / 375
+        givenCardEl.style.transition = "transform 1s ease-in-out"
+        destinationCardEl.style.transition = "transform 1s ease-in-out"
+        
+        givenCardEl.style.transform = `
+            ${givenCardAngle % 360 === 0 ? `` : `rotate(${givenCardAngle}deg)`} 
+            translate(${-dX*cardRadius}px, ${-dY*cardRadius}px) 
+            ${destinationCardAngle % 360 === 0 ? `` : `rotate(${destinationCardAngle}deg)`}`
+    
+        await new Promise(resolve => {
+            givenCardEl.addEventListener('transitionend', resolve, { once: true });
+        });        
+    
+        givenCardEl.style.transition = "transform";
+        givenCardEl.style.transform = "";
+    }
 }
 
 

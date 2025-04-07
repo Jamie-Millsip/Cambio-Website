@@ -1,7 +1,6 @@
 import { forwardRef, useContext, useEffect, useState } from "react";
 import { drawCard, discardCard, lookCard, flipCard, giveCard} from "../../../utilities/CardAPIs"
 import LobbyContext from "../../../pages/LobbyContext";
-import axios from "axios";
 import GameContext from "../../../pages/GameContext";
 /**
  * this component is responsible for each individual game card, identifying the correct way of displaying the card, and for correctly dealing
@@ -19,22 +18,18 @@ import GameContext from "../../../pages/GameContext";
  */
 
 const  Card = forwardRef(({thisUser, cardIndex, row, col, cards}, ref) => {
-
-
-    const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
     
     const {lobbyID, selectedSwapCards, setSelectedSwapCards, backendSite} = useContext(LobbyContext)
-    const {currentTurn, state, canFlip, trigger, triggerVar, selectedPile, setSelectedPile} = useContext(GameContext);
+    const {currentTurn, state, canFlip, trigger, triggerVar, selectedPile, setSelectedPile, setHasActed, hasActed} = useContext(GameContext);
 
     const [currentTurnStyle, setCurrentTurnStyle]=useState("")
     const [thisCard, setThisCard] = useState(null);
-    let card = null;
-
     const [canDraw, setCanDraw] = useState(false);
     const [canDiscard, setCanDiscard] = useState(false);
     const [canLook, setCanLook] = useState(false)
     const [canGiveCard, setCanGiveCard] = useState(false)
     const [canSwap, setCanSwap] = useState(false)
+    let card = null;
 
 
 
@@ -48,28 +43,37 @@ const  Card = forwardRef(({thisUser, cardIndex, row, col, cards}, ref) => {
     }, [cards]);
 
     useEffect(()=>{
-        // 
-
-        state === 0 && thisUser === currentTurn && cardIndex < 2 ? setCanDraw(true): setCanDraw(false);
-
-        state === 1 && thisUser === currentTurn && (cardIndex === selectedPile || cardIndex === thisUser) ? setCanDiscard(true) : setCanDiscard(false);
-
-        thisUser === currentTurn && ((state === 2 && thisUser === cardIndex) || (state === 3 && thisUser !== cardIndex)) ? setCanLook(true) : setCanLook(false);
-
-        thisUser === currentTurn && ((state === 4 || state === 5) && selectedSwapCards.length < 2) ? setCanSwap(true) : setCanSwap(false)
-
-        thisUser === currentTurn && state === 6 && thisUser === cardIndex ? setCanGiveCard(true) : setCanGiveCard(false)
-    }, [state, thisUser, currentTurn, cardIndex, selectedPile, cardIndex])
+        if (hasActed){
+            setCanDraw(false)
+            setCanDiscard(false)
+            setCanLook(false)
+            setCanSwap(false)
+        }
+        else{
+            state === 0 && thisUser === currentTurn && cardIndex < 2 ? setCanDraw(true): setCanDraw(false);
+            
+            state === 1 && thisUser === currentTurn && (cardIndex === selectedPile || cardIndex === thisUser) 
+            ? setCanDiscard(true) : setCanDiscard(false);
+            
+            thisUser === currentTurn && ((state === 2 && thisUser === cardIndex) || (state === 3 && thisUser !== cardIndex)) 
+            ? setCanLook(true) : setCanLook(false);
+            
+            thisUser === currentTurn && cardIndex > 1 && ((state === 4 || state === 5) && selectedSwapCards.length < 2) 
+            ? setCanSwap(true) : setCanSwap(false)
+        }
+        thisUser === currentTurn && state === 6 && thisUser === cardIndex 
+        ? setCanGiveCard(true) : setCanGiveCard(false)
+    }, [state, thisUser, currentTurn, cardIndex, selectedPile, cardIndex, selectedSwapCards, hasActed])
 
 
 
     const handleClick = () => {
-        canDraw ? drawCard(cards, cardIndex, trigger, triggerVar, backendSite, lobbyID, setSelectedPile) : 
-        canDiscard ? discardCard(selectedPile, cardIndex, row, col, backendSite, lobbyID) : 
-        canLook ? lookCard(cardIndex, row, col, backendSite, lobbyID) : 
+        canDraw ? drawCard(cards, cardIndex, trigger, triggerVar, lobbyID, setSelectedPile, setHasActed) : 
+        canDiscard ? discardCard(selectedPile, cardIndex, row, col, lobbyID, setHasActed) : 
+        canLook ? lookCard(cardIndex, row, col, lobbyID, setHasActed) : 
         canSwap ? swapCard() : 
-        canGiveCard ? giveCard(cardIndex, row, col, backendSite, lobbyID) :
-        canFlip ? flipCard(state, thisUser, cardIndex, row, col, currentTurn, thisCard, backendSite, lobbyID, cards) : 
+        canGiveCard ? giveCard(cardIndex, row, col, lobbyID) :
+        canFlip ? flipCard(state, thisUser, cardIndex, row, col, currentTurn, thisCard, lobbyID, cards) : 
         null;
     }
 
