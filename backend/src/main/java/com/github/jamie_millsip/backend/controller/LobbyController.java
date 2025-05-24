@@ -22,8 +22,8 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 @RestController
-@CrossOrigin(origins = "https://jamie-millsip.github.io")
-//@CrossOrigin(origins = "http://localhost:5173")
+//@CrossOrigin(origins = "https://jamie-millsip.github.io")
+@CrossOrigin(origins = "http://localhost:4173")
 public class LobbyController {
 
     @Autowired
@@ -60,30 +60,37 @@ public class LobbyController {
     }
 
     @RequestMapping("/addPlayer")
-    public int AddPlayer(@RequestBody ReadyUpRequest request){
+    public LobbySocketResponse AddPlayer(@RequestBody ReadyUpRequest request){
         String lobbyID = request.getLobbyID();
         Player player = request.getPlayer();
-        boolean availableName = true;
+        if (player.getNickname().isEmpty()){
+            return null;
+        }
         for (Lobby l : lobbyList) {
             if (l.getId().equals(lobbyID)) {
-                for (Player p : l.getAllPlayers()){
-                    if (Objects.equals(p.getNickname(), player.getNickname())){
-                        availableName = false;
-                        break;
+                int count = 1;
+                boolean validName = false;
+                String newNickname = player.getNickname();
+                String nameAddition = "";
+                while (!validName){
+                    validName = true;
+                    for (Player p : l.getAllPlayers()){
+                        if (Objects.equals(p.getNickname(), newNickname + nameAddition)){
+                            nameAddition = " (" + count + ")";
+                            count++;
+                            validName = false;
+                            break;
+                        }
                     }
+
                 }
-                if (availableName){
-                    l.addPlayer(player);
-                    break;
-                }
-                else{
-                    return 0;
-                }
+                player.setNickname(newNickname + nameAddition);
+                l.addPlayer(player);
             }
         }
         PlayerReady[] playersArray = getPlayersReady(lobbyID);
         triggerBroadcast(lobbyID, new LobbySocketResponse("playerNames", playersArray));
-        return 1;
+        return new LobbySocketResponse("enterNicknameResponse", player.getNickname());
     }
 
     @RequestMapping("/lobbyReadyUp")
